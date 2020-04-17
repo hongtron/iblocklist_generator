@@ -1,0 +1,11 @@
+[package]
+name = "iblocklist_generator"
+version = "0.1.0"
+authors = ["ali <github@alihong.net>"]
+edition = "2018"
+
+[dependencies]
+http = "0.2"
+flate2 = "1.0"
+tempfile = "3"
+reqwest = "0.10"
