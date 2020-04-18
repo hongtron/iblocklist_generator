@@ -4,21 +4,22 @@ use std::io;
 use std::io::Write;
 use tempfile::NamedTempFile;
 use flate2::read::GzDecoder;
+use anyhow::Result;
 
 fn blocklist_uri(id: &str) -> String {
     format!("https://list.iblocklist.com/?list={}&fileformat=p2p&archiveformat=gz", id)
 }
 
-fn get_blocklist(id: &str) -> Result<File, io::Error> {
+fn get_blocklist(id: &str) -> Result<File> {
     let resource = blocklist_uri(id);
-    let body = reqwest::blocking::get(&resource).unwrap().bytes().unwrap();
+    let body = reqwest::blocking::get(&resource)?.bytes()?;
     let mut dest = NamedTempFile::new()?;
     dest.write_all(&body)?;
     let reader = dest.reopen()?;
     Ok(reader)
 }
 
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<()> {
     let blocklists: HashMap<&str, &str> = [
         ("level1", "ydxerpxkpcfqjaybcssw"),
         ("level2", "gyisgnzbhppbvsphucsw"),
@@ -32,7 +33,7 @@ fn main() -> Result<(), io::Error> {
 
     for (list_name, f) in local_blocklists {
         let mut gz = GzDecoder::new(f);
-        let mut list_out = File::create(format!("/tmp/{}.txt", list_name)).unwrap();
+        let mut list_out = File::create(format!("/tmp/{}.txt", list_name))?;
         io::copy(&mut gz, &mut list_out).unwrap();
     };
 
