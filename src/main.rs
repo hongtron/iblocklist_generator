@@ -44,14 +44,14 @@ fn valid_lines(f: Result<File>) -> Result<Vec<Result<String, std::io::Error>>> {
     Ok(valid_lines)
 }
 
-fn main() -> Result<()> {
+fn main() {
     let blocklists = vec![
         Blocklist { name: "level1", id: "ydxerpxkpcfqjaybcssw" },
         Blocklist { name: "level2", id: "gyisgnzbhppbvsphucsw" },
         Blocklist { name: "level3", id: "uwnukjqktoggdknzrhgh" },
     ];
 
-    let mut combined_list = File::create("blocklist.txt")?;
+    let mut combined_list = File::create("blocklist.txt").unwrap();
     blocklists.iter()
         .map(|b| { b.download() })
         .map(|f| decompress(f))
@@ -60,6 +60,4 @@ fn main() -> Result<()> {
                 writeln!(combined_list, "{}", line.unwrap()).unwrap();
             }
         });
-
-    Ok(())
 }
