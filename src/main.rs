@@ -51,17 +51,15 @@ fn main() -> Result<()> {
         Blocklist { name: "level3", id: "uwnukjqktoggdknzrhgh" },
     ];
 
-    let local_blocklists: Vec<Result<File>> = blocklists.iter()
+    let mut combined_list = File::create("blocklist.txt")?;
+    blocklists.iter()
         .map(|b| { b.download() })
         .map(|f| decompress(f))
-        .collect();
-
-    let mut combined_list = File::create("blocklist.txt")?;
-    for f in local_blocklists {
-        for line in valid_lines(f).unwrap() {
-            writeln!(combined_list, "{}", line?)?;
-        }
-    }
+        .for_each(|f| {
+            for line in valid_lines(f).unwrap() {
+                writeln!(combined_list, "{}", line.unwrap()).unwrap();
+            }
+        });
 
     Ok(())
 }
