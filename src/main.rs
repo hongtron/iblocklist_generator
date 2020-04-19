@@ -29,19 +29,19 @@ impl<'a> Blocklist<'a> {
 fn decompress_list(f: Result<File>) -> Result<File> {
     let mut gz = GzDecoder::new(f?);
     let mut list_out = NamedTempFile::new()?;
-    io::copy(&mut gz, &mut list_out).unwrap();
+    io::copy(&mut gz, &mut list_out)?;
     let reader = list_out.reopen()?;
     Ok(reader)
 }
 
-fn valid_lines(f: File) -> Vec<String> {
-    let empty_line_or_comment: Regex = Regex::new(r"(^$|^#.*$)").unwrap();
-    let r = BufReader::new(f);
+fn valid_lines(f: Result<File>) -> Result<Vec<Result<String, std::io::Error>>> {
+    let empty_line_or_comment: Regex = Regex::new(r"(^$|^#.*$)")?;
+    let r = BufReader::new(f?);
     let valid_lines = r.lines()
-        .map(|l| l.unwrap())
-        .filter(|line| !empty_line_or_comment.is_match(line))
+        .filter(|l| !empty_line_or_comment.is_match(l.as_ref().unwrap()))
         .collect();
-    valid_lines
+
+    Ok(valid_lines)
 }
 
 fn main() -> Result<()> {
@@ -59,10 +59,8 @@ fn main() -> Result<()> {
     let mut combined_list = File::create("blocklist.txt")?;
 
     for f in local_blocklists {
-        let f = f.unwrap();
-        let valid_lines = valid_lines(f);
-        for line in valid_lines {
-            writeln!(combined_list, "{}", line)?;
+        for line in valid_lines(f).unwrap() {
+            writeln!(combined_list, "{}", line?)?;
         }
     }
 
