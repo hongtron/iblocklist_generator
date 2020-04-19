@@ -53,11 +53,11 @@ fn main() {
 
     let mut combined_list = File::create("blocklist.txt").unwrap();
     blocklists.iter()
-        .map(|b| { b.download() })
+        .map(|b| b.download())
         .map(|f| decompress(f))
-        .for_each(|f| {
-            for line in valid_lines(f).unwrap() {
-                writeln!(combined_list, "{}", line.unwrap()).unwrap();
-            }
-        });
+        .flat_map(|f| valid_lines(f).unwrap())
+        .for_each(|l| {
+            writeln!(combined_list, "{}", l.as_ref().unwrap())
+                .unwrap();
+        })
 }
