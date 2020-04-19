@@ -15,19 +15,19 @@ impl<'a> Blocklist<'a> {
     fn uri(&self) -> String {
         format!("https://list.iblocklist.com/?list={}&fileformat=p2p&archiveformat=gz", self.id)
     }
+
+    fn download(&self) -> Result<File> {
+        println!("Downloading list: {}", self.name);
+        let body = reqwest::blocking::get(&self.uri())?.bytes()?;
+        let mut dest = NamedTempFile::new()?;
+        dest.write_all(&body)?;
+        let reader = dest.reopen()?;
+        Ok(reader)
+    }
 }
 
-fn download_list(blocklist: &Blocklist) -> Result<File> {
-    println!("Downloading list: {}", blocklist.name);
-    let body = reqwest::blocking::get(&blocklist.uri())?.bytes()?;
-    let mut dest = NamedTempFile::new()?;
-    dest.write_all(&body)?;
-    let reader = dest.reopen()?;
-    Ok(reader)
-}
-
-fn decompress_list(f: File) -> Result<File> {
-    let mut gz = GzDecoder::new(f);
+fn decompress_list(f: Result<File>) -> Result<File> {
+    let mut gz = GzDecoder::new(f?);
     let mut list_out = NamedTempFile::new()?;
     io::copy(&mut gz, &mut list_out).unwrap();
     let reader = list_out.reopen()?;
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
     ];
 
     let local_blocklists: Vec<Result<File>> = blocklists.iter()
-        .map(|blocklist| { download_list(&blocklist).unwrap() })
+        .map(|b| { b.download() })
         .map(|f| decompress_list(f))
         .collect();
 
