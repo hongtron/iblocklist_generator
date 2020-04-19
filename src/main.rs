@@ -11,14 +11,15 @@ struct Blocklist<'a> {
     name: &'a str,
 }
 
-fn blocklist_uri(id: &str) -> String {
-    format!("https://list.iblocklist.com/?list={}&fileformat=p2p&archiveformat=gz", id)
+impl<'a> Blocklist<'a> {
+    fn uri(&self) -> String {
+        format!("https://list.iblocklist.com/?list={}&fileformat=p2p&archiveformat=gz", self.id)
+    }
 }
 
 fn download_list(blocklist: &Blocklist) -> Result<File> {
     println!("Downloading list: {}", blocklist.name);
-    let resource = blocklist_uri(blocklist.id);
-    let body = reqwest::blocking::get(&resource)?.bytes()?;
+    let body = reqwest::blocking::get(&blocklist.uri())?.bytes()?;
     let mut dest = NamedTempFile::new()?;
     dest.write_all(&body)?;
     let reader = dest.reopen()?;
