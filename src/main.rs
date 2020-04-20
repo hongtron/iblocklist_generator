@@ -27,21 +27,21 @@ impl<'a> Blocklist<'a> {
     }
 }
 
-fn decompress(f: Result<File>) -> Result<File> {
-    let mut gz = GzDecoder::new(f?);
+fn decompress(f: File) -> Result<File> {
+    let mut gz = GzDecoder::new(f);
     let mut out = NamedTempFile::new()?;
     io::copy(&mut gz, &mut out)?;
     let reader = out.reopen()?;
     Ok(reader)
 }
 
-fn valid_lines(f: Result<File>) -> Result<Vec<Result<String, std::io::Error>>> {
+fn valid_entries(f: File) -> Result<Vec<Result<String, std::io::Error>>> {
     let empty_line_or_comment: Regex = Regex::new(r"(^$|^#.*$)")?;
-    let r = BufReader::new(f?);
-    let valid_lines = r.lines()
+    let r = BufReader::new(f);
+    let valid_entries = r.lines()
         .filter(|l| !empty_line_or_comment.is_match(l.as_ref().unwrap()))
         .collect();
-    Ok(valid_lines)
+    Ok(valid_entries)
 }
 
 fn main() {
@@ -53,11 +53,11 @@ fn main() {
 
     let mut combined_list = File::create("blocklist.txt").unwrap();
     blocklists.iter()
-        .map(|b| b.download())
-        .map(|f| decompress(f))
-        .flat_map(|f| valid_lines(f).unwrap())
+        .map(|b| b.download().expect("Problem downloading blocklist"))
+        .map(|f| decompress(f).expect("Problem decompressing blocklist"))
+        .flat_map(|f| valid_entries(f).expect("Problem filtering invalid entries"))
         .for_each(|l| {
             writeln!(combined_list, "{}", l.as_ref().unwrap())
-                .unwrap();
+                .expect("Problem writing entry to output file");
         })
 }
