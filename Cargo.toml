@@ -10,4 +10,5 @@ flate2 = "1.0"
 tempfile = "3"
 anyhow = "1.0"
 regex = "1"
+structopt = "0.3"
 reqwest = { version = "0.10", features = ["blocking"] }

@@ -1,11 +1,22 @@
 use std::fs::File;
 use std::io;
+use std::path::PathBuf;
 use std::io::{Write, BufReader, BufRead};
 
 use tempfile::NamedTempFile;
 use flate2::read::GzDecoder;
 use anyhow::Result;
 use regex::Regex;
+use structopt::StructOpt;
+
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "iblocklist_generator", about = "Fetch and combine lists from iblocklist.com")]
+struct Opt {
+    /// Combined list destination; writes to stdout if not specified.
+    #[structopt(short, long, parse(from_os_str))]
+    output_file: Option<PathBuf>,
+}
 
 struct Blocklist<'a> {
     id: &'a str,
@@ -18,7 +29,7 @@ impl<'a> Blocklist<'a> {
     }
 
     fn download(&self) -> Result<File> {
-        println!("Downloading list: {}", self.name);
+        eprintln!("Downloading list: {}", self.name);
         let body = reqwest::blocking::get(&self.uri())?.bytes()?;
         let mut dest = NamedTempFile::new()?;
         dest.write_all(&body)?;
@@ -44,20 +55,29 @@ fn valid_entries(f: File) -> Result<Vec<Result<String, std::io::Error>>> {
     Ok(valid_entries)
 }
 
+fn get_output(output_opt: Option<PathBuf>) -> Box<dyn Write> {
+    output_opt
+        .map(|o| File::create(o.as_path()).expect("Invalid output path"))
+        .map(|f| Box::new(f) as Box<dyn Write>)
+        .unwrap_or(Box::new(std::io::stdout()) as Box<dyn Write>)
+}
+
 fn main() {
+    let opt = Opt::from_args();
+    let mut output = get_output(opt.output_file);
+
     let blocklists = vec![
         Blocklist { name: "level1", id: "ydxerpxkpcfqjaybcssw" },
         Blocklist { name: "level2", id: "gyisgnzbhppbvsphucsw" },
         Blocklist { name: "level3", id: "uwnukjqktoggdknzrhgh" },
     ];
 
-    let mut combined_list = File::create("blocklist.txt").unwrap();
     blocklists.iter()
         .map(|b| b.download().expect("Problem downloading blocklist"))
         .map(|f| decompress(f).expect("Problem decompressing blocklist"))
         .flat_map(|f| valid_entries(f).expect("Problem filtering invalid entries"))
         .for_each(|l| {
-            writeln!(combined_list, "{}", l.as_ref().unwrap())
+            writeln!(output, "{}", l.as_ref().unwrap())
                 .expect("Problem writing entry to output file");
         })
 }
