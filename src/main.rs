@@ -3,6 +3,7 @@ use std::sync::Arc;
 use async_std::sync::Mutex;
 use async_std::task;
 use flate2::bufread::GzDecoder;
+use futures::future::join_all;
 use regex::Regex;
 use std::io::Read;
 
@@ -21,6 +22,19 @@ impl<'a> Blocklist<'a> {
     }
 }
 
+fn store_from_blocklists(vec: &Vec<Blocklist>) -> Arc<Mutex<Vec<Vec<u8>>>> {
+    Arc::new(Mutex::new(Vec::with_capacity(vec.len())))
+}
+
+async fn push_to_store(store: Arc<Mutex<Vec<Vec<u8>>>>, value: Vec<u8>) -> () {
+    store.lock().await.push(value);
+}
+
+fn unwrap_store(store: Arc<Mutex<Vec<Vec<u8>>>>) -> Vec<Vec<u8>> {
+    Arc::try_unwrap(store).unwrap().into_inner()
+}
+
+
 fn main() {
     let blocklists = vec![
         Blocklist { name: "level1", id: "ydxerpxkpcfqjaybcssw" },
@@ -28,29 +42,21 @@ fn main() {
         Blocklist { name: "level3", id: "uwnukjqktoggdknzrhgh" },
     ];
 
-    let mut tasks = Vec::with_capacity(blocklists.len());
-    let raw_contents = Arc::new(Mutex::new(Vec::with_capacity(blocklists.len())));
+    let store = store_from_blocklists(&blocklists);
+    let mut fetches = Vec::with_capacity(blocklists.len());
 
-    for blocklist in blocklists.into_iter() {
-        let rc = Arc::clone(&raw_contents);
-        tasks.push(
-            task::spawn(
-                async move {
-                    rc.lock().await.push(blocklist.fetch().await)
-                }
-            )
-        )
-    };
+    for bl in blocklists {
+        let store_ref = store.clone();
+        fetches.push(task::spawn(async move { push_to_store(store_ref, bl.fetch().await) }))
+    }
 
-    task::block_on(async {
-        for t in tasks {
-            t.await;
-        }
-    });
+    let fetch_all = join_all(fetches);
+    task::block_on(async { fetch_all.await });
+    let raw_contents = unwrap_store(store);
 
     let empty_line_or_comment: Regex = Regex::new(r"(^$|^#.*$)").unwrap();
+
     let mut combined_contents = String::new();
-    let raw_contents = task::block_on(async { raw_contents.lock().await });
     raw_contents.iter()
         .map(|bytes| GzDecoder::new(&bytes[..])
             .read_to_string(&mut combined_contents)
