@@ -42,19 +42,18 @@ async fn main() {
         })
     .buffer_unordered(CONCURRENT_REQUESTS);
 
-    let mut combined_contents = String::new();
+    let mut combined_contents = vec![];
     bodies.for_each(|b| {
-        combined_contents.push_str(&b);
+        combined_contents.push(b);
         future::ready(())
     }).await;
 
     let empty_line_or_comment: Regex = Regex::new(r"(^$|^#.*$)").unwrap();
-    let final_list: Vec<&str> = combined_contents
-        .lines()
+    let final_list: Vec<&str> = combined_contents.iter().flat_map(|x| x.lines())
         .filter(|l| !empty_line_or_comment.is_match(l))
         .collect();
 
     for entry in final_list {
-        writeln!(String::from(entry)).unwrap()
+        println!("{}", entry)
     }
 }
